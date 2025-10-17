@@ -1,6 +1,11 @@
 // firebase.js
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+} from "firebase/auth";
 
 // Diagnostic log to confirm env vars are loaded
 console.log("🔍 Firebase Config Diagnostic:");
@@ -29,4 +34,26 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
+// --- Sign-in and sign-out helpers ---
+export const signInWithGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    console.log("✅ Signed in user:", result.user);
+    return result.user;
+  } catch (error) {
+    console.error("❌ Sign-in error:", error);
+    throw error;
+  }
+};
+
+export const signOutUser = async () => {
+  try {
+    await signOut(auth);
+    console.log("👋 Signed out");
+  } catch (error) {
+    console.error("❌ Sign-out error:", error);
+  }
+};
+
+// Export auth and provider (for optional direct use)
 export { auth, provider };
