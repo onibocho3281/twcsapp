@@ -1,11 +1,6 @@
 // firebase.js
 import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-} from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
 // Diagnostic log to confirm env vars are loaded
 console.log("🔍 Firebase Config Diagnostic:");
@@ -29,12 +24,10 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-// --- Sign-in and sign-out helpers ---
 export const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, provider);
@@ -55,5 +48,4 @@ export const logout = async () => {
   }
 };
 
-// Export auth and provider (for optional direct use)
 export { auth, provider };
