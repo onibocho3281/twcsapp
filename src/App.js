@@ -1,57 +1,56 @@
 // App.js
-import React, { useState, useEffect } from "react";
-import { signInWithGoogle, logout, auth } from "./firebase";
-
-const TEMPLATE_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ"; // Your template sheet
+import React, { useState } from "react";
+import { signInWithGoogle, logout, auth, provider } from "./firebase";
 
 function App() {
   const [user, setUser] = useState(null);
-  const [accessToken, setAccessToken] = useState(null);
+  const [accessToken, setAccessToken] = useState("");
   const [characterName, setCharacterName] = useState("");
-  const [currentSheetId, setCurrentSheetId] = useState(null);
-  const [sheetData, setSheetData] = useState([]);
-  const [userSheets, setUserSheets] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  // Track auth state
-  useEffect(() => {
-    auth.onAuthStateChanged(async (u) => {
-      setUser(u);
-      if (u) {
-        const token = await u.getIdToken(true);
-        setAccessToken(token);
-        await listUserSheets(token);
-      } else {
-        setAccessToken(null);
-      }
-    });
-  }, []);
+  const TEMPLATE_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ"; // your template Google Sheet ID
 
-  // Sign in handler
-  const handleSignIn = async () => {
+  const handleLogin = async () => {
     try {
-      const signedInUser = await signInWithGoogle();
-      console.log("Logged in:", signedInUser);
+      const result = await signInWithGoogle();
+      setUser(result);
+      
+      // Get Google OAuth access token
+      const credential = window.google?.auth?.GoogleAuthProvider
+        ? window.google.auth.GoogleAuthProvider.credentialFromResult(result)
+        : null;
+
+      const token = result.stsTokenManager?.accessToken; // fallback if using Firebase v10
+      if (!token) {
+        console.warn("⚠️ No Google OAuth token, using ID token might fail.");
+      }
+      setAccessToken(token);
+      setMessage(`Logged in as ${result.displayName}`);
     } catch (error) {
-      console.error("Sign-in failed:", error);
+      console.error("Login failed:", error);
+      setMessage("Login failed");
     }
   };
 
-  // Sign out handler
-  const handleSignOut = async () => {
+  const handleLogout = async () => {
     await logout();
     setUser(null);
-    setCurrentSheetId(null);
-    setSheetData([]);
+    setAccessToken("");
+    setMessage("Logged out");
   };
 
-  // Create new sheet with character name
-  const handleCreateSheet = async () => {
-    if (!accessToken) return alert("Sign in first!");
-    if (!characterName) return alert("Enter a character name.");
+  const createNewCharacter = async () => {
+    if (!accessToken) {
+      setMessage("⚠️ No Google Auth token. Sign in first.");
+      return;
+    }
+    if (!characterName) {
+      setMessage("⚠️ Enter a character name first.");
+      return;
+    }
 
-    setLoading(true);
     try {
+      setMessage("Creating new character sheet...");
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${TEMPLATE_ID}/copy`,
         {
@@ -64,154 +63,47 @@ function App() {
         }
       );
 
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const newSheet = await response.json();
-      setCurrentSheetId(newSheet.id);
-      await fetchSheetData(newSheet.id);
-      await listUserSheets(accessToken);
-      alert("Character sheet created!");
+      const data = await response.json();
+      const newSheetId = data.id;
+      const newSheetUrl = `https://docs.google.com/spreadsheets/d/${newSheetId}/edit`;
+      setMessage(`✅ Sheet created! Open it here: ${newSheetUrl}`);
+      window.open(newSheetUrl, "_blank");
     } catch (error) {
       console.error("❌ Error creating sheet:", error);
-      alert("Failed to create sheet. Check console.");
+      setMessage(`Error creating sheet: ${error.message}`);
     }
-    setLoading(false);
-  };
-
-  // Fetch data from a sheet
-  const fetchSheetData = async (sheetId) => {
-    try {
-      const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/General!A1:AI73`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
-      setSheetData(data.values || []);
-    } catch (error) {
-      console.error("❌ Failed to fetch sheet data:", error);
-    }
-  };
-
-  // Update the current sheet with changes
-  const handleUpdateSheet = async () => {
-    if (!currentSheetId) return alert("No sheet selected");
-    try {
-      await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${currentSheetId}/values/General!A1:AI73?valueInputOption=USER_ENTERED`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ values: sheetData }),
-        }
-      );
-      alert("Sheet updated successfully!");
-    } catch (error) {
-      console.error("❌ Failed to update sheet:", error);
-      alert("Failed to update sheet. Check console.");
-    }
-  };
-
-  // List sheets owned by user
-  const listUserSheets = async (token) => {
-    try {
-      const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners&fields=files(id,name)`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      const data = await response.json();
-      setUserSheets(data.files || []);
-    } catch (error) {
-      console.error("❌ Failed to list user sheets:", error);
-    }
-  };
-
-  // Handle selecting a sheet
-  const handleSelectSheet = async (sheetId) => {
-    setCurrentSheetId(sheetId);
-    await fetchSheetData(sheetId);
-  };
-
-  // Handle editing a cell
-  const handleCellChange = (row, col, value) => {
-    const updatedData = [...sheetData];
-    updatedData[row][col] = value;
-    setSheetData(updatedData);
   };
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div style={{ fontFamily: "sans-serif", padding: "2rem", maxWidth: "600px", margin: "0 auto" }}>
       <h1>The Witcher TTRPG Character Sheet</h1>
+      <p>{message}</p>
+
       {!user ? (
-        <button onClick={handleSignIn}>Sign in with Google</button>
+        <button onClick={handleLogin} style={{ padding: "0.5rem 1rem", fontSize: "1rem" }}>
+          Sign in with Google
+        </button>
       ) : (
         <>
           <p>Welcome, {user.displayName}</p>
-          <button onClick={handleSignOut}>Sign out</button>
+          <button onClick={handleLogout} style={{ padding: "0.5rem 1rem", marginBottom: "1rem" }}>
+            Logout
+          </button>
 
-          <div style={{ marginTop: "20px" }}>
+          <div style={{ marginTop: "1rem" }}>
             <input
               type="text"
               placeholder="Enter character name"
               value={characterName}
               onChange={(e) => setCharacterName(e.target.value)}
+              style={{ padding: "0.5rem", fontSize: "1rem", width: "100%", marginBottom: "0.5rem" }}
             />
-            <button onClick={handleCreateSheet} disabled={loading}>
-              {loading ? "Creating..." : "New Character Sheet"}
+            <button onClick={createNewCharacter} style={{ padding: "0.5rem 1rem", fontSize: "1rem" }}>
+              New Character Sheet
             </button>
           </div>
-
-          <div style={{ marginTop: "20px" }}>
-            <h3>Your Sheets</h3>
-            <select
-              onChange={(e) => handleSelectSheet(e.target.value)}
-              value={currentSheetId || ""}
-            >
-              <option value="">Select a sheet</option>
-              {userSheets.map((sheet) => (
-                <option key={sheet.id} value={sheet.id}>
-                  {sheet.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {sheetData.length > 0 && (
-            <div style={{ marginTop: "20px", overflowX: "auto" }}>
-              <table border="1">
-                <tbody>
-                  {sheetData.map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {row.map((cell, colIndex) => (
-                        <td key={colIndex}>
-                          <input
-                            value={cell}
-                            onChange={(e) =>
-                              handleCellChange(rowIndex, colIndex, e.target.value)
-                            }
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <button onClick={handleUpdateSheet} style={{ marginTop: "10px" }}>
-                Save Changes
-              </button>
-            </div>
-          )}
         </>
       )}
     </div>
