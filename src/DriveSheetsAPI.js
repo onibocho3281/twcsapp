@@ -1,32 +1,29 @@
-// src/DriveSheetsAPI.js
+// DriveSheetsAPI.js
+// Handles creating a copy of the template Google Sheet
 
-// Google Drive API endpoint to copy the Witcher sheet template
-const DRIVE_API_URL = "https://www.googleapis.com/drive/v3/files";
+const TEMPLATE_SHEET_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ"; // your template sheet
 
-export const copyTemplateSheet = async (accessToken) => {
-  const TEMPLATE_FILE_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ"; // your template
-
+export const createNewCharacterSheet = async (accessToken, sheetName = "New Witcher Character Sheet") => {
   try {
-    const response = await fetch(`${DRIVE_API_URL}/${TEMPLATE_FILE_ID}/copy`, {
+    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${TEMPLATE_SHEET_ID}/copy`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        name: `Witcher Character Sheet - ${new Date().toLocaleString()}`,
-      }),
+      body: JSON.stringify({ name: sheetName }),
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errText}`);
+      const err = await response.json();
+      throw new Error(JSON.stringify(err));
     }
 
     const data = await response.json();
-    return data.id; // Return the ID of the new sheet
-  } catch (err) {
-    console.error("Error copying template:", err);
-    throw err;
+    console.log("✅ New Sheet Created:", data);
+    return data; // contains id, name, etc.
+  } catch (error) {
+    console.error("❌ Error creating sheet:", error);
+    throw error;
   }
 };
