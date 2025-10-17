@@ -1,15 +1,15 @@
-// App.js
 import React, { useEffect, useState } from "react";
 import { signInWithGoogle, logout } from "./firebase";
-import { listSheets, createSheetFromTemplate } from "./DriveSheetsAPI";
+import { listSheets, createSheetFromTemplate, fetchSheetGeneralTab } from "./DriveSheetsAPI";
 
-const TEMPLATE_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ"; // Replace with your template Google Sheet ID
+const TEMPLATE_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ"; // Replace with your template sheet ID
 
 function App() {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [sheets, setSheets] = useState([]);
   const [selectedSheetId, setSelectedSheetId] = useState("");
+  const [generalData, setGeneralData] = useState([]);
 
   const handleSignIn = async () => {
     try {
@@ -28,15 +28,16 @@ function App() {
     setAccessToken(null);
     setSheets([]);
     setSelectedSheetId("");
+    setGeneralData([]);
   };
 
   const fetchSheets = async (token) => {
     try {
       const files = await listSheets(token);
       setSheets(files);
-      console.log("📄 Fetched sheets:", files);
+      console.log("📄 Fetched Witcher sheets:", files);
     } catch (err) {
-      console.error("❌ Error fetching sheets:", err);
+      console.error(err);
     }
   };
 
@@ -50,17 +51,31 @@ function App() {
     if (!newName) return;
 
     try {
-      const newSheet = await createSheetFromTemplate(
-        accessToken,
-        TEMPLATE_ID,
-        newName
-      );
+      const newSheet = await createSheetFromTemplate(accessToken, TEMPLATE_ID, newName);
       console.log("✅ Created new sheet:", newSheet);
       setSheets((prev) => [...prev, newSheet]);
       setSelectedSheetId(newSheet.id);
+      await loadGeneralTab(newSheet.id);
     } catch (err) {
-      console.error("❌ Error creating sheet:", err);
+      console.error(err);
     }
+  };
+
+  const loadGeneralTab = async (sheetId) => {
+    try {
+      const data = await fetchSheetGeneralTab(accessToken, sheetId);
+      setGeneralData(data);
+      console.log("📊 General tab data:", data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSheetSelect = async (e) => {
+    const sheetId = e.target.value;
+    setSelectedSheetId(sheetId);
+    if (sheetId) await loadGeneralTab(sheetId);
+    else setGeneralData([]);
   };
 
   return (
@@ -81,10 +96,7 @@ function App() {
           <div style={{ marginTop: "20px" }}>
             <label>
               Select Sheet:{" "}
-              <select
-                value={selectedSheetId}
-                onChange={(e) => setSelectedSheetId(e.target.value)}
-              >
+              <select value={selectedSheetId} onChange={handleSheetSelect}>
                 <option value="">-- Choose a sheet --</option>
                 {sheets.map((sheet) => (
                   <option key={sheet.id} value={sheet.id}>
@@ -94,6 +106,23 @@ function App() {
               </select>
             </label>
           </div>
+
+          {generalData.length > 0 && (
+            <div style={{ marginTop: "20px" }}>
+              <h2>General Tab Data</h2>
+              <table border="1" cellPadding="5">
+                <tbody>
+                  {generalData.map((row, i) => (
+                    <tr key={i}>
+                      {row.map((cell, j) => (
+                        <td key={j}>{cell}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
     </div>
