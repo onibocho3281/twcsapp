@@ -7,7 +7,6 @@ import {
   signOut,
 } from "firebase/auth";
 
-// Firebase config (replace with your actual values or environment variables)
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
@@ -18,18 +17,22 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
 
-// Sign-in helper returning user and OAuth access token
+// Create provider with required scopes
+const provider = new GoogleAuthProvider();
+provider.addScope("https://www.googleapis.com/auth/drive"); // full Drive access
+provider.addScope("https://www.googleapis.com/auth/spreadsheets"); // full Sheets access
+
 export const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, provider);
+    // Extract the OAuth access token
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    const accessToken = credential.accessToken; // OAuth token for Drive/Sheets API
+    const accessToken = credential.accessToken;
     console.log("✅ Signed in user:", result.user);
+    console.log("🔑 OAuth token:", accessToken);
     return { user: result.user, accessToken };
   } catch (error) {
     console.error("❌ Sign-in error:", error);
@@ -37,7 +40,6 @@ export const signInWithGoogle = async () => {
   }
 };
 
-// Logout helper
 export const logout = async () => {
   try {
     await signOut(auth);
@@ -47,5 +49,4 @@ export const logout = async () => {
   }
 };
 
-// Export auth and provider if needed
 export { auth, provider };
