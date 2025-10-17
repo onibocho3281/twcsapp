@@ -17,23 +17,23 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Create provider with required scopes
+// Request Drive and Sheets scopes
 const provider = new GoogleAuthProvider();
-provider.addScope("https://www.googleapis.com/auth/drive"); // full Drive access
-provider.addScope("https://www.googleapis.com/auth/spreadsheets"); // full Sheets access
+provider.addScope("https://www.googleapis.com/auth/drive");
+provider.addScope("https://www.googleapis.com/auth/spreadsheets");
 
 export const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, provider);
-    // Extract the OAuth access token
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const accessToken = credential.accessToken;
     console.log("✅ Signed in user:", result.user);
     console.log("🔑 OAuth token:", accessToken);
-    return { user: result.user, accessToken };
+    return { user: result.user, token: accessToken };
   } catch (error) {
     console.error("❌ Sign-in error:", error);
     throw error;
