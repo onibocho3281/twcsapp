@@ -1,70 +1,39 @@
 // App.js
-import React, { useState, useEffect } from "react";
-import { auth, signInWithGoogle, logout } from "./firebase";
-import { GoogleAuthProvider, getAuth } from "firebase/auth";
+import React, { useState } from "react";
+import { signInWithGoogle, logout } from "./firebase";
 
-const App = () => {
+const TEMPLATE_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ";
+
+function App() {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Monitor Firebase Auth state
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // Get Google OAuth access token
-        const token = await getGoogleOAuthToken(currentUser);
-        setAccessToken(token);
-      } else {
-        setAccessToken(null);
-      }
-    });
-    return unsubscribe;
-  }, []);
-
-  // Helper: get Google OAuth access token from currentUser
-  const getGoogleOAuthToken = async (currentUser) => {
-    const provider = new GoogleAuthProvider();
-    provider.addScope("https://www.googleapis.com/auth/drive");
-    provider.addScope("https://www.googleapis.com/auth/spreadsheets");
-
-    // Reauthenticate silently to get token
-    const result = await auth.signInWithPopup(provider).catch((err) => {
-      console.error("Error fetching OAuth token:", err);
-      return null;
-    });
-
-    if (!result) return null;
-
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    return credential?.accessToken || null;
-  };
-
+  // --- Sign-in handler ---
   const handleSignIn = async () => {
     try {
-      const loggedUser = await signInWithGoogle();
-      console.log("Logged in:", loggedUser);
+      const result = await signInWithGoogle();
+      setUser(result.user);
+      setAccessToken(result.accessToken);
     } catch (error) {
       console.error("Sign-in failed:", error);
+      alert("Sign-in failed. Check console for details.");
     }
   };
 
+  // --- Sign-out handler ---
   const handleSignOut = async () => {
     await logout();
     setUser(null);
     setAccessToken(null);
   };
 
-  // Create a new character sheet by copying the template
+  // --- Create new character sheet ---
   const handleCreateSheet = async () => {
-    if (!accessToken) return alert("No Google OAuth token. Sign in first.");
+    if (!accessToken) return alert("No Google Auth token. Sign in first.");
 
     setLoading(true);
     try {
-      // Your template sheet ID here
-      const TEMPLATE_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ";
-
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${TEMPLATE_ID}/copy`,
         {
@@ -111,6 +80,6 @@ const App = () => {
       )}
     </div>
   );
-};
+}
 
 export default App;
