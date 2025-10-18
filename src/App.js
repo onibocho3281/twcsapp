@@ -15,11 +15,10 @@ function App() {
   const [selectedSheetId, setSelectedSheetId] = useState("");
   const [general, setGeneral] = useState({});
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((u) => {
-      setUser(u || null);
-    });
+    const unsub = auth.onAuthStateChanged((u) => setUser(u || null));
     return () => unsub();
   }, []);
 
@@ -64,7 +63,6 @@ function App() {
     if (!accessToken) return alert("Sign in first.");
     const name = prompt("Enter character name:");
     if (!name) return;
-
     try {
       setLoading(true);
       const created = await createSheetFromTemplate(accessToken, name);
@@ -107,25 +105,31 @@ function App() {
   const handleSave = async () => {
     if (!accessToken || !selectedSheetId) return alert("Sign in and select a sheet first.");
     try {
-      setLoading(true);
+      setSaving(true);
       await updateGeneralTabFromObject(accessToken, selectedSheetId, general);
-      alert("Saved successfully — formulas in M remain intact.");
+      // Wait 1.5 s for Google formulas to recalc, then refresh M column
+      setTimeout(async () => {
+        const refreshed = await fetchGeneralTabAsObject(accessToken, selectedSheetId);
+        setGeneral(refreshed);
+        setSaving(false);
+      }, 1500);
     } catch (err) {
       console.error("save error:", err);
       alert("Save failed — see console.");
-    } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial, sans-serif", maxWidth: 1000, margin: "auto" }}>
-      <h1>The Witcher TTRPG — Character Sheets</h1>
+    <div style={{ padding: 20, fontFamily: "Poppins, sans-serif", maxWidth: 1000, margin: "auto" }}>
+      <h1 style={{ textAlign: "center" }}>🜂 The Witcher TTRPG — Character Sheets 🜂</h1>
 
       {!user ? (
-        <button onClick={handleSignIn} disabled={loading}>
-          {loading ? "Signing in..." : "Sign in with Google"}
-        </button>
+        <div style={{ textAlign: "center" }}>
+          <button onClick={handleSignIn} disabled={loading}>
+            {loading ? "Signing in..." : "Sign in with Google"}
+          </button>
+        </div>
       ) : (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -133,7 +137,7 @@ function App() {
               <strong>Signed in:</strong> {user.displayName}
             </div>
             <div>
-              <button onClick={handleCreateNew} disabled={loading}>New Character Sheet</button>{" "}
+              <button onClick={handleCreateNew} disabled={loading}>New Character</button>{" "}
               <button onClick={() => loadSheets()} disabled={loading}>Refresh List</button>{" "}
               <button onClick={handleLogout}>Sign out</button>
             </div>
@@ -143,7 +147,7 @@ function App() {
             <label>
               Select sheet:
               <select value={selectedSheetId} onChange={handleSelect} style={{ marginLeft: 8 }}>
-                <option value="">-- choose --</option>
+                <option value="">— choose —</option>
                 {sheets.map((f) => (
                   <option key={f.id} value={f.id}>{f.name}</option>
                 ))}
@@ -153,31 +157,33 @@ function App() {
 
           {selectedSheetId ? (
             <div style={{ marginTop: 20 }}>
-              <h2>General — (L editable, J labels, M formulas)</h2>
+              <h2>General Tab (J labels, L inputs, M formulas)</h2>
               <div style={{ display: "grid", gap: 8 }}>
                 {Object.entries(general).map(([k, v]) => (
                   <div key={k} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <div style={{ width: 250, fontWeight: "bold" }}>{k}</div>
+                    <div style={{ width: 250, fontWeight: "600" }}>{k}</div>
                     <input
                       style={{ width: 200, padding: 6 }}
                       value={v.editable}
                       onChange={(e) => handleChange(k, e.target.value)}
                     />
-                    <div style={{
-                      minWidth: 150,
-                      padding: "6px 8px",
-                      backgroundColor: "#f3f3f3",
-                      border: "1px solid #ddd",
-                      borderRadius: 4,
-                    }}>
+                    <div
+                      style={{
+                        minWidth: 150,
+                        padding: "6px 8px",
+                        backgroundColor: "#f5f5f5",
+                        border: "1px solid #ddd",
+                        borderRadius: 4,
+                      }}
+                    >
                       {v.formula}
                     </div>
                   </div>
                 ))}
               </div>
               <div style={{ marginTop: 12 }}>
-                <button onClick={handleSave} disabled={loading}>
-                  {loading ? "Saving..." : "Save Inputs"}
+                <button onClick={handleSave} disabled={saving}>
+                  {saving ? "Saving and Refreshing..." : "Save Inputs"}
                 </button>
               </div>
             </div>
