@@ -1,95 +1,76 @@
 /* App.css */
 
-/* Base styles */
 body {
-  background-color: #121212;
-  color: #f5f5f5;
-  font-family: "Cinzel", serif;
   margin: 0;
-  padding: 0;
+  font-family: "Georgia", serif;
+  background-color: #1b1b1b;
+  color: #e0d9c3;
 }
 
 .app-container {
   max-width: 900px;
   margin: 2rem auto;
   padding: 2rem;
-  background-color: #1e1e1e;
+  background-color: #2b2b2b;
   border-radius: 12px;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
 }
 
-.title {
+h1 {
   text-align: center;
-  font-size: 2.2rem;
-  color: #d4af37;
-  margin-bottom: 2rem;
+  color: #f5d547;
+  margin-bottom: 1.5rem;
 }
 
-/* Auth and controls */
-.auth-button,
-.new-sheet-button,
-.logout-button {
+.btn {
+  background-color: #444;
+  color: #f5d547;
+  border: none;
   padding: 0.6rem 1.2rem;
-  border: none;
+  margin: 0.2rem;
   border-radius: 6px;
-  font-size: 1rem;
   cursor: pointer;
-  margin-right: 1rem;
+  font-weight: bold;
 }
 
-.auth-button {
-  background-color: #d4af37;
-  color: #1e1e1e;
+.btn:hover {
+  background-color: #555;
 }
 
-.auth-button:hover {
-  background-color: #c29d2f;
-}
-
-.controls {
+.sheet-controls {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
+  justify-content: center;
+  margin-bottom: 1rem;
 }
 
-.sheet-dropdown {
-  padding: 0.5rem 1rem;
+.sheet-controls select {
+  margin-right: 0.5rem;
+  padding: 0.5rem;
   border-radius: 6px;
   border: none;
-  font-size: 1rem;
-  background-color: #2a2a2a;
-  color: #f5f5f5;
+  background-color: #444;
+  color: #f5d547;
 }
 
-/* Sheet form */
-.sheet-form {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 1rem 2rem;
+.sheet-table {
+  width: 100%;
+  border-collapse: collapse;
   margin-top: 1rem;
 }
 
-.form-row {
-  display: contents; /* ensures grid alignment */
-}
-
-.form-label {
-  font-weight: bold;
-  align-self: center;
-}
-
-.form-input {
+.sheet-table th,
+.sheet-table td {
+  border: 1px solid #555;
   padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #444;
-  background-color: #2a2a2a;
-  color: #f5f5f5;
-  font-size: 1rem;
+  text-align: left;
 }
 
-.form-input:focus {
-  outline: none;
-  border-color: #d4af37;
-  box-shadow: 0 0 5px #d4af37;
+.sheet-table th {
+  background-color: #333;
+  color: #f5d547;
+}
+
+.sheet-table td[contenteditable] {
+  background-color: #2f2f2f;
+  color: #e0d9c3;
 }
