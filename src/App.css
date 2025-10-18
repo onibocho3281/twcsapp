@@ -1,0 +1,120 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap");
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #1a1a1a, #000);
+  color: #eee;
+  font-family: "Cinzel", serif;
+  overflow-x: hidden;
+}
+
+.app-container {
+  min-height: 100vh;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.app-title {
+  font-size: 2.2rem;
+  color: #c00;
+  text-shadow: 0 0 15px #f00;
+  margin-bottom: 2rem;
+  letter-spacing: 1px;
+}
+
+.top-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.dropdown {
+  background-color: #111;
+  color: #fff;
+  border: 1px solid #a00;
+  padding: 0.5rem;
+  border-radius: 6px;
+  min-width: 200px;
+}
+
+.btn-primary,
+.btn-red,
+.btn-grey {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-primary {
+  background: linear-gradient(90deg, #600, #a00);
+  color: #fff;
+}
+
+.btn-red {
+  background-color: #900;
+  color: #fff;
+}
+
+.btn-grey {
+  background-color: #333;
+  color: #fff;
+}
+
+.btn-primary:hover,
+.btn-red:hover,
+.btn-grey:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 10px #a00;
+}
+
+.sheet-container {
+  background-color: rgba(20, 20, 20, 0.9);
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 700px;
+  box-shadow: 0 0 20px #a00a;
+}
+
+.sheet-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  align-items: center;
+}
+
+.sheet-row label {
+  color: #ddd;
+}
+
+.sheet-row input {
+  background-color: #1a1a1a;
+  color: #fff;
+  border: 1px solid #a00;
+  padding: 0.4rem;
+  border-radius: 6px;
+  outline: none;
+}
+
+.sheet-row input:focus {
+  border-color: #f00;
+  box-shadow: 0 0 5px #f00;
+}
+
+.formula {
+  text-align: right;
+  color: #999;
+}
+
+.loading,
+.no-selection {
+  color: #888;
+}
