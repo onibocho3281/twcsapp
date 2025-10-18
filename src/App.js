@@ -1,154 +1,212 @@
-// App.js
+// src/App.js
 import React, { useEffect, useState } from "react";
 import { signInWithGoogle, logout, auth } from "./firebase";
 import {
-  fetchSheets,
+  listWitcherSheets,
   createSheetFromTemplate,
-  fetchSheetValues,
-  updateSheetValues,
+  fetchGeneralTabAsObject,
+  updateGeneralTabFromObject,
 } from "./DriveSheetsAPI";
 
 function App() {
   const [user, setUser] = useState(null);
-  const [accessToken, setAccessToken] = useState("");
+  const [accessToken, setAccessToken] = useState(null);
   const [sheets, setSheets] = useState([]);
   const [selectedSheetId, setSelectedSheetId] = useState("");
-  const [generalTabData, setGeneralTabData] = useState({});
-  const [editableData, setEditableData] = useState({}); // user inputs
+  const [general, setGeneral] = useState({}); // key -> value map
+  const [loading, setLoading] = useState(false);
 
-  // --- Sign in handler ---
+  // Listen to firebase auth changes (keeps user state in sync if needed)
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((u) => {
+      setUser(u || null);
+      // note: we don't auto-get token here; signInWithGoogle returns token directly
+    });
+    return () => unsub();
+  }, []);
+
+  // Sign in and fetch sheets
   const handleSignIn = async () => {
     try {
-      const result = await signInWithGoogle();
-      setUser(result.user);
-      setAccessToken(result.accessToken);
-      console.log("Logged in:", result.user);
-    } catch (error) {
-      console.error("Sign-in failed:", error);
+      setLoading(true);
+      const { user, accessToken: token } = await signInWithGoogle();
+      setUser(user);
+      setAccessToken(token);
+      console.log("signed in user:", user, "token ok:", !!token);
+      if (!token) alert("Warning: no Google OAuth token received. Drive access will fail.");
+      await loadSheets(token);
+    } catch (err) {
+      console.error("Sign-in error:", err);
+      alert("Sign-in failed — check console.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // --- Sign out handler ---
-  const handleSignOut = async () => {
+  const handleLogout = async () => {
     await logout();
     setUser(null);
-    setAccessToken("");
+    setAccessToken(null);
     setSheets([]);
     setSelectedSheetId("");
-    setGeneralTabData({});
-    setEditableData({});
+    setGeneral({});
   };
 
-  // --- Fetch Witcher Character Sheets ---
-  const loadSheets = async () => {
-    if (!accessToken) return;
+  // Get list of Witcher sheets
+  const loadSheets = async (token = accessToken) => {
+    if (!token) {
+      console.warn("No token in loadSheets");
+      return;
+    }
     try {
-      const fetchedSheets = await fetchSheets(accessToken);
-      setSheets(fetchedSheets);
-    } catch (error) {
-      console.error("❌ Error fetching sheets:", error);
+      setLoading(true);
+      const files = await listWitcherSheets(token);
+      setSheets(files);
+      console.log("Loaded sheets:", files);
+    } catch (err) {
+      console.error("loadSheets error:", err);
+      alert("Failed to list sheets. See console.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // --- Fetch General tab for selected sheet ---
-  const loadGeneralTab = async (sheetId) => {
-    if (!accessToken) return;
-    try {
-      const values = await fetchSheetValues(accessToken, sheetId, "General");
-      setGeneralTabData(values);
-
-      // Initialize editableData for the front-end
-      setEditableData({ ...values });
-    } catch (error) {
-      console.error("❌ Error fetching General tab:", error);
+  // Create new character sheet from template
+  const handleCreateNew = async () => {
+    if (!accessToken) {
+      alert("Sign in first.");
+      return;
     }
-  };
-
-  // --- Handle dropdown change ---
-  const handleSheetSelect = (e) => {
-    const sheetId = e.target.value;
-    setSelectedSheetId(sheetId);
-    loadGeneralTab(sheetId);
-  };
-
-  // --- Handle input change ---
-  const handleInputChange = (key, value) => {
-    setEditableData((prev) => ({ ...prev, [key]: value }));
-  };
-
-  // --- Save edited data back to Google Sheet ---
-  const handleSave = async () => {
-    if (!accessToken || !selectedSheetId) return;
-    try {
-      await updateSheetValues(accessToken, selectedSheetId, "General", editableData);
-      alert("Sheet updated successfully!");
-    } catch (error) {
-      console.error("❌ Error updating sheet:", error);
-      alert("Failed to update sheet.");
-    }
-  };
-
-  // --- Create new character sheet ---
-  const handleNewCharacter = async () => {
-    if (!accessToken) return;
-    const name = prompt("Enter character name:");
+    const name = prompt("Enter character name (e.g. Geralt of Rivia):");
     if (!name) return;
+
     try {
-      const newSheetId = await createSheetFromTemplate(accessToken, name);
-      setSheets((prev) => [...prev, { id: newSheetId, name }]);
-      setSelectedSheetId(newSheetId);
-      loadGeneralTab(newSheetId);
-    } catch (error) {
-      console.error("❌ Error creating sheet:", error);
+      setLoading(true);
+      const created = await createSheetFromTemplate(accessToken, name);
+      // created is the file object; ensure we add it to list and select it
+      setSheets((s) => [...s, { id: created.id, name: created.name }]);
+      setSelectedSheetId(created.id);
+      // load General tab object
+      const obj = await fetchGeneralTabAsObject(accessToken, created.id);
+      setGeneral(obj);
+      alert("Sheet created and loaded.");
+    } catch (err) {
+      console.error("create error:", err);
+      alert("Failed to create sheet (see console).");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Load sheets after login
-  useEffect(() => {
-    if (accessToken) loadSheets();
-  }, [accessToken]);
+  // When a sheet is selected, load its General tab
+  const handleSelect = async (e) => {
+    const id = e.target.value;
+    setSelectedSheetId(id);
+    if (!id) {
+      setGeneral({});
+      return;
+    }
+    if (!accessToken) {
+      alert("No access token; please sign out and sign in again.");
+      return;
+    }
+    try {
+      setLoading(true);
+      const obj = await fetchGeneralTabAsObject(accessToken, id);
+      setGeneral(obj);
+      console.log("Loaded General for", id, obj);
+    } catch (err) {
+      console.error("fetchGeneral error:", err);
+      alert("Failed to load General tab. See console.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update a key's value locally
+  const handleChange = (key, value) => {
+    setGeneral((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Save the whole General object back to sheet (A:B)
+  const handleSave = async () => {
+    if (!accessToken || !selectedSheetId) return alert("Sign in and select a sheet first.");
+    try {
+      setLoading(true);
+      await updateGeneralTabFromObject(accessToken, selectedSheetId, general);
+      alert("Saved successfully — formulas in other cells remain intact.");
+    } catch (err) {
+      console.error("save error:", err);
+      alert("Save failed — see console.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-      <h1>The Witcher TTRPG Character Sheet</h1>
+    <div style={{ padding: 20, fontFamily: "Arial, sans-serif", maxWidth: 1000, margin: "auto" }}>
+      <h1>The Witcher TTRPG — Character Sheets</h1>
 
       {!user ? (
-        <button onClick={handleSignIn}>Sign in with Google</button>
-      ) : (
         <div>
-          <p>Welcome, {user.displayName}</p>
-          <button onClick={handleSignOut}>Sign out</button>
-          <hr />
-          <button onClick={handleNewCharacter}>New Character Sheet</button>
-          <div style={{ marginTop: "1rem" }}>
-            <label>Select Character Sheet: </label>
-            <select value={selectedSheetId} onChange={handleSheetSelect}>
-              <option value="">--Choose a sheet--</option>
-              {sheets.map((sheet) => (
-                <option key={sheet.id} value={sheet.id}>
-                  {sheet.name}
-                </option>
-              ))}
-            </select>
+          <button onClick={handleSignIn} disabled={loading}>
+            {loading ? "Signing in..." : "Sign in with Google"}
+          </button>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <strong>Signed in:</strong> {user.displayName}
+            </div>
+            <div>
+              <button onClick={handleCreateNew} disabled={loading}>New Character Sheet</button>{" "}
+              <button onClick={() => loadSheets()} disabled={loading}>Refresh List</button>{" "}
+              <button onClick={handleLogout}>Sign out</button>
+            </div>
           </div>
 
-          {selectedSheetId && (
-            <div style={{ marginTop: "2rem" }}>
-              <h2>General Tab</h2>
-              {Object.keys(generalTabData).map((key) => (
-                <div key={key} style={{ marginBottom: "0.5rem" }}>
-                  <label>{key}: </label>
-                  <input
-                    type="text"
-                    value={editableData[key] || ""}
-                    onChange={(e) => handleInputChange(key, e.target.value)}
-                  />
-                </div>
-              ))}
-              <button onClick={handleSave}>Save Changes</button>
+          <div style={{ marginTop: 16 }}>
+            <label>
+              Select sheet:
+              <select value={selectedSheetId} onChange={handleSelect} style={{ marginLeft: 8 }}>
+                <option value="">-- choose --</option>
+                {sheets.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {selectedSheetId ? (
+            <div style={{ marginTop: 20 }}>
+              <h2>General (editable)</h2>
+              <div style={{ display: "grid", gap: 8 }}>
+                {Object.keys(general).length === 0 && <div>(No entries in General A:B)</div>}
+                {Object.entries(general).map(([k, v]) => (
+                  <div key={k} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ width: 300 }}>{k}</div>
+                    <input
+                      style={{ flex: 1, padding: 6 }}
+                      value={v}
+                      onChange={(e) => handleChange(k, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 12 }}>
+                <button onClick={handleSave} disabled={loading}>
+                  {loading ? "Saving..." : "Save General to Sheet"}
+                </button>
+              </div>
             </div>
+          ) : (
+            <div style={{ marginTop: 20 }}>(Select a sheet to load its General tab)</div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
