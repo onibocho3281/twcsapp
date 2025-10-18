@@ -1,106 +1,138 @@
 // App.js
 import React, { useState, useEffect } from "react";
-import { signInWithGoogle, getOAuthToken } from "./firebase";
-import {
-  listCharacterSheets,
-  createCharacterSheet,
-  fetchSheetData,
-} from "./DriveSheetsAPI";
+import { signInWithGoogle, logout, auth, getOAuthToken } from "./firebase";
+import { listCharacterSheets, createCharacterSheet, fetchSheetData } from "./DriveSheetsAPI";
 import "./App.css";
 
 function App() {
   const [user, setUser] = useState(null);
-  const [oauthToken, setOauthToken] = useState(null);
+  const [token, setToken] = useState(null);
   const [sheets, setSheets] = useState([]);
   const [selectedSheetId, setSelectedSheetId] = useState("");
-  const [sheetData, setSheetData] = useState([]);
+  const [sheetData, setSheetData] = useState({});
 
+  // Listen for auth state
   useEffect(() => {
-    if (oauthToken) loadSheets();
-  }, [oauthToken]);
+    auth.onAuthStateChanged(async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        const idToken = await getOAuthToken();
+        setToken(idToken);
+        fetchSheets(idToken);
+      } else {
+        setUser(null);
+        setToken(null);
+        setSheets([]);
+        setSheetData({});
+      }
+    });
+  }, []);
 
-  async function handleSignIn() {
-    const signedInUser = await signInWithGoogle();
-    setUser(signedInUser);
+  const fetchSheets = async (accessToken) => {
+    try {
+      const files = await listCharacterSheets(accessToken);
+      setSheets(files);
+    } catch (err) {
+      console.error("❌ Error fetching sheets:", err);
+    }
+  };
 
-    const token = await getOAuthToken();
-    setOauthToken(token);
-  }
-
-  async function loadSheets() {
-    const files = await listCharacterSheets(oauthToken);
-    setSheets(files);
-    if (files.length > 0) setSelectedSheetId(files[0].id);
-  }
-
-  async function handleCreateSheet() {
+  const handleNewSheet = async () => {
+    if (!token || !user) {
+      alert("Please sign in first");
+      return;
+    }
     const name = prompt("Enter character name:");
     if (!name) return;
     try {
-      const id = await createCharacterSheet(oauthToken, name);
-      alert("New sheet created!");
-      setSelectedSheetId(id);
-      await loadSheets();
+      const newSheet = await createCharacterSheet(name, token);
+      setSheets((prev) => [...prev, newSheet]);
+      setSelectedSheetId(newSheet.id);
+      fetchData(newSheet.id);
     } catch (err) {
-      alert("Failed to create sheet.");
+      console.error("❌ Error creating sheet:", err);
     }
-  }
+  };
 
-  async function handleFetchSheet() {
-    if (!selectedSheetId) return;
-    const data = await fetchSheetData(selectedSheetId, oauthToken);
-    setSheetData(data);
-  }
+  const fetchData = async (sheetId) => {
+    if (!token) return;
+    try {
+      const data = await fetchSheetData(sheetId, token);
+      setSheetData(data);
+    } catch (err) {
+      console.error("❌ Error fetching sheet data:", err);
+    }
+  };
+
+  const handleSheetChange = (e) => {
+    const sheetId = e.target.value;
+    setSelectedSheetId(sheetId);
+    fetchData(sheetId);
+  };
+
+  const handleInputChange = (rowKey, colKey, value) => {
+    setSheetData((prev) => ({
+      ...prev,
+      [rowKey]: { ...prev[rowKey], [colKey]: value },
+    }));
+  };
 
   return (
     <div className="app-container">
-      <h1>The Witcher TTRPG Character Sheet</h1>
-      {!user ? (
-        <button className="btn" onClick={handleSignIn}>
-          Sign in with Google
-        </button>
-      ) : (
-        <>
-          <div className="sheet-controls">
-            <select
-              value={selectedSheetId}
-              onChange={(e) => setSelectedSheetId(e.target.value)}
-            >
-              {sheets.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <button className="btn" onClick={handleCreateSheet}>
-              New Character Sheet
-            </button>
-            <button className="btn" onClick={handleFetchSheet}>
-              Load Sheet
-            </button>
-          </div>
+      <header className="app-header">
+        <h1>The Witcher TTRPG Character Sheet</h1>
+        {!user ? (
+          <button onClick={signInWithGoogle} className="auth-btn">Sign in with Google</button>
+        ) : (
+          <button onClick={logout} className="auth-btn">Sign out</button>
+        )}
+      </header>
 
-          {sheetData.length > 0 && (
-            <table className="sheet-table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Value</th>
-                  <th>Formula</th>
+      {user && (
+        <section className="sheet-controls">
+          <button onClick={handleNewSheet} className="new-sheet-btn">New Character Sheet</button>
+
+          <select
+            value={selectedSheetId}
+            onChange={handleSheetChange}
+            className="sheet-dropdown"
+          >
+            <option value="">Select Character Sheet</option>
+            {sheets.map((sheet) => (
+              <option key={sheet.id} value={sheet.id}>{sheet.name}</option>
+            ))}
+          </select>
+        </section>
+      )}
+
+      {selectedSheetId && (
+        <section className="sheet-display">
+          <h2>General</h2>
+          <table className="sheet-table">
+            <thead>
+              <tr>
+                <th>Title (Protected)</th>
+                <th>Editable</th>
+                <th>Formula Output</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(sheetData).map((rowKey) => (
+                <tr key={rowKey}>
+                  <td>{sheetData[rowKey].protected}</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={sheetData[rowKey].editable || ""}
+                      onChange={(e) => handleInputChange(rowKey, "editable", e.target.value)}
+                    />
+                  </td>
+                  <td>{sheetData[rowKey].formula}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {sheetData.map((row, i) => (
-                  <tr key={i}>
-                    <td>{row[0]}</td>
-                    <td contentEditable>{row[1]}</td>
-                    <td>{row[2]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
     </div>
   );
