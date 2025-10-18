@@ -1,118 +1,120 @@
-// DriveSheetsAPI.js
-const TEMPLATE_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ"; // <-- your template ID
+// src/DriveSheetsAPI.js
+const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
+const SHEETS_API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
+const TEMPLATE_ID = "1mUHQy9NsT1FFWfer78xGyPePQI21gAgXqos_fjAQTAQ"; // <-- confirm/replace
 
-// --- List Witcher Character Sheets ---
-export async function fetchSheets(accessToken) {
-  const query = encodeURIComponent(
-    "name contains 'Witcher Character Sheet' and mimeType='application/vnd.google-apps.spreadsheet'"
+// List only Witcher Character Sheets (name contains)
+export async function listWitcherSheets(accessToken) {
+  if (!accessToken) throw new Error("No access token provided to listWitcherSheets");
+
+  const q = encodeURIComponent(
+    "mimeType='application/vnd.google-apps.spreadsheet' and name contains 'Witcher Character Sheet'"
   );
 
-  const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)&pageSize=100`,
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }
-  );
+  const url = `${DRIVE_API}?q=${q}&fields=files(id,name)&pageSize=200`;
 
-  if (!response.ok) {
-    console.error("❌ Error fetching sheets:", await response.text());
-    throw new Error("Failed to fetch sheets");
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("listWitcherSheets failed:", txt);
+    throw new Error(txt || "Failed to list sheets");
   }
 
-  const data = await response.json();
-  console.log("📄 Sheets found:", data.files);
-  return data.files;
+  const data = await res.json();
+  return data.files || [];
 }
 
-// --- Create new sheet from template ---
-export async function createSheetFromTemplate(accessToken, characterName) {
-  const metadata = {
-    name: `Witcher Character Sheet - ${characterName}`,
-  };
+// Create a sheet from template; returns the created sheet object (id, name, ...)
+export async function createSheetFromTemplate(accessToken, newName) {
+  if (!accessToken) throw new Error("No access token provided to createSheetFromTemplate");
 
-  const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${TEMPLATE_ID}/copy`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(metadata),
-    }
-  );
+  const url = `${DRIVE_API}/${TEMPLATE_ID}/copy`;
+  const body = { name: `Witcher Character Sheet - ${newName}` };
 
-  if (!response.ok) {
-    console.error("❌ Error creating sheet:", await response.text());
-    throw new Error("Failed to create sheet");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("createSheetFromTemplate failed:", txt);
+    throw new Error(txt || "Failed to create sheet from template");
   }
 
-  const data = await response.json();
-  console.log("✅ Created new sheet:", data);
-  return data.id;
+  const data = await res.json();
+  // data contains id, name, etc.
+  return data;
 }
 
-// --- Fetch values from the General tab ---
-export async function fetchSheetValues(accessToken, sheetId, sheetName) {
-  const range = `${sheetName}!A1:Z100`; // adjust if needed
-  const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`,
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }
-  );
+// Fetch General tab and return key->value object
+// Assumes General tab has "label" in column A and "value" in column B
+export async function fetchGeneralTabAsObject(accessToken, sheetId) {
+  if (!accessToken) throw new Error("No access token provided to fetchGeneralTabAsObject");
 
-  if (!response.ok) {
-    console.error("❌ Error fetching sheet values:", await response.text());
-    throw new Error("Failed to fetch sheet values");
+  const range = encodeURIComponent("General!A1:B500"); // adjust rows if needed
+  const url = `${SHEETS_API_BASE}/${sheetId}/values/${range}`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("fetchGeneralTabAsObject failed:", txt);
+    throw new Error(txt || "Failed to fetch General tab");
   }
 
-  const data = await response.json();
-  console.log("📘 Raw sheet data:", data);
+  const data = await res.json();
+  const rows = data.values || [];
 
-  // Transform rows into a key:value object
-  const values = data.values || [];
   const obj = {};
-
-  // Assuming the first column is a label and the second column is a value
-  values.forEach((row) => {
-    const key = row[0];
-    const val = row[1];
-    if (key) obj[key] = val || "";
+  rows.forEach((r) => {
+    const label = r[0];
+    const value = r[1] ?? "";
+    if (label) obj[label] = value;
   });
 
   return obj;
 }
 
-// --- Update editable cells in General tab ---
-export async function updateSheetValues(accessToken, sheetId, sheetName, updatedData) {
-  // Convert back to 2D array format: [ [key, value], ... ]
-  const values = Object.entries(updatedData).map(([key, val]) => [key, val]);
+// Update only A:B rows corresponding to key order in the provided object
+// This writes the exact 2-column area from A1 down to A{n}:B{n}
+export async function updateGeneralTabFromObject(accessToken, sheetId, dataObject) {
+  if (!accessToken) throw new Error("No access token provided to updateGeneralTabFromObject");
 
-  const body = {
-    range: `${sheetName}!A1:B${values.length}`,
-    majorDimension: "ROWS",
-    values: values,
-  };
+  const entries = Object.entries(dataObject); // [ [label, value], ... ]
+  if (entries.length === 0) return null;
 
-  const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}!A1:B${values.length}?valueInputOption=USER_ENTERED`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  // Create 2D array rows
+  const values = entries.map(([k, v]) => [k, v]);
 
-  if (!response.ok) {
-    console.error("❌ Error updating sheet:", await response.text());
-    throw new Error("Failed to update sheet");
+  const range = `General!A1:B${values.length}`;
+  const url = `${SHEETS_API_BASE}/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+
+  const body = { range, majorDimension: "ROWS", values };
+
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("updateGeneralTabFromObject failed:", txt);
+    throw new Error(txt || "Failed to update General tab");
   }
 
-  const result = await response.json();
-  console.log("✅ Sheet updated:", result);
-  return result;
+  return await res.json();
 }
