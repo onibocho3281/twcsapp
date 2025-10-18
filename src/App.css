@@ -1,120 +1,95 @@
-@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap");
+/* App.css */
 
+/* Base styles */
 body {
-  margin: 0;
-  background: radial-gradient(circle at top, #1a1a1a, #000);
-  color: #eee;
+  background-color: #121212;
+  color: #f5f5f5;
   font-family: "Cinzel", serif;
-  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 .app-container {
-  min-height: 100vh;
+  max-width: 900px;
+  margin: 2rem auto;
   padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  background-color: #1e1e1e;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
 }
 
-.app-title {
+.title {
+  text-align: center;
   font-size: 2.2rem;
-  color: #c00;
-  text-shadow: 0 0 15px #f00;
-  margin-bottom: 2rem;
-  letter-spacing: 1px;
-}
-
-.top-bar {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
+  color: #d4af37;
   margin-bottom: 2rem;
 }
 
-.dropdown {
-  background-color: #111;
-  color: #fff;
-  border: 1px solid #a00;
-  padding: 0.5rem;
-  border-radius: 6px;
-  min-width: 200px;
-}
-
-.btn-primary,
-.btn-red,
-.btn-grey {
+/* Auth and controls */
+.auth-button,
+.new-sheet-button,
+.logout-button {
   padding: 0.6rem 1.2rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 1rem;
   cursor: pointer;
-  transition: 0.3s;
+  margin-right: 1rem;
 }
 
-.btn-primary {
-  background: linear-gradient(90deg, #600, #a00);
-  color: #fff;
+.auth-button {
+  background-color: #d4af37;
+  color: #1e1e1e;
 }
 
-.btn-red {
-  background-color: #900;
-  color: #fff;
+.auth-button:hover {
+  background-color: #c29d2f;
 }
 
-.btn-grey {
-  background-color: #333;
-  color: #fff;
-}
-
-.btn-primary:hover,
-.btn-red:hover,
-.btn-grey:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 10px #a00;
-}
-
-.sheet-container {
-  background-color: rgba(20, 20, 20, 0.9);
-  border: 1px solid #333;
-  border-radius: 10px;
-  padding: 1.5rem;
-  width: 90%;
-  max-width: 700px;
-  box-shadow: 0 0 20px #a00a;
-}
-
-.sheet-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+.controls {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  margin-bottom: 2rem;
 }
 
-.sheet-row label {
-  color: #ddd;
-}
-
-.sheet-row input {
-  background-color: #1a1a1a;
-  color: #fff;
-  border: 1px solid #a00;
-  padding: 0.4rem;
+.sheet-dropdown {
+  padding: 0.5rem 1rem;
   border-radius: 6px;
+  border: none;
+  font-size: 1rem;
+  background-color: #2a2a2a;
+  color: #f5f5f5;
+}
+
+/* Sheet form */
+.sheet-form {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1rem 2rem;
+  margin-top: 1rem;
+}
+
+.form-row {
+  display: contents; /* ensures grid alignment */
+}
+
+.form-label {
+  font-weight: bold;
+  align-self: center;
+}
+
+.form-input {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background-color: #2a2a2a;
+  color: #f5f5f5;
+  font-size: 1rem;
+}
+
+.form-input:focus {
   outline: none;
-}
-
-.sheet-row input:focus {
-  border-color: #f00;
-  box-shadow: 0 0 5px #f00;
-}
-
-.formula {
-  text-align: right;
-  color: #999;
-}
-
-.loading,
-.no-selection {
-  color: #888;
+  border-color: #d4af37;
+  box-shadow: 0 0 5px #d4af37;
 }
