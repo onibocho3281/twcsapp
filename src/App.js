@@ -6,6 +6,7 @@ import {
   getGeneralTabData,
   updateCellValue,
 } from "./DriveSheetsAPI";
+import "./App.css";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -15,20 +16,17 @@ export default function App() {
   const [sheetData, setSheetData] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // --- Sign in handler ---
   const handleSignIn = async () => {
     try {
       const result = await signInWithGoogle();
       setUser(result.user);
       const oauthToken = await getOAuthToken();
-      console.log("🔑 OAuth token:", oauthToken);
       setToken(oauthToken);
     } catch (error) {
       console.error("❌ Sign-in failed:", error);
     }
   };
 
-  // --- Sign out handler ---
   const handleSignOut = async () => {
     await signOutUser();
     setUser(null);
@@ -38,19 +36,16 @@ export default function App() {
     setSheetData([]);
   };
 
-  // --- Load all Witcher sheets after login ---
   const loadSheets = async () => {
     if (!token) return;
     try {
       const files = await listCharacterSheets(token);
       setSheets(files);
-      console.log("📜 Sheets loaded:", files);
     } catch (err) {
       console.error("❌ Error fetching sheets:", err);
     }
   };
 
-  // --- Load sheet data (General tab, cols J–M) ---
   const loadSheetData = async (sheetId) => {
     if (!token || !sheetId) return;
     setLoading(true);
@@ -63,14 +58,12 @@ export default function App() {
     setLoading(false);
   };
 
-  // --- Handle sheet selection ---
   const handleSelectSheet = (e) => {
     const id = e.target.value;
     setSelectedSheet(id);
     loadSheetData(id);
   };
 
-  // --- Create new sheet ---
   const handleCreateSheet = async () => {
     if (!token) return alert("Sign in first!");
     try {
@@ -85,15 +78,13 @@ export default function App() {
     }
   };
 
-  // --- Update editable cell ---
   const handleInputChange = async (rowIndex, value) => {
     if (!token || !selectedSheet) return;
     try {
-      const label = sheetData[rowIndex][0]; // column J (title)
-      const range = `General!L${rowIndex + 1}`; // editable cell
+      const range = `General!L${rowIndex + 1}`;
       await updateCellValue(selectedSheet, range, value, token);
       const updated = [...sheetData];
-      updated[rowIndex][1] = value; // column L
+      updated[rowIndex][1] = value;
       setSheetData(updated);
     } catch (err) {
       console.error("❌ Error updating cell:", err);
@@ -105,64 +96,20 @@ export default function App() {
   }, [token]);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor: "#0b0b0b",
-        color: "#eee",
-        fontFamily: "'Cinzel', serif",
-        padding: "2rem",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-      }}
-    >
-      <h1
-        style={{
-          color: "#b00",
-          textShadow: "0 0 8px #f00",
-          marginBottom: "1rem",
-          fontSize: "2rem",
-        }}
-      >
-        ⚔️ Witcher Character Manager
-      </h1>
+    <div className="app-container">
+      <h1 className="app-title">⚔️ Witcher Character Manager</h1>
 
       {!user ? (
-        <button
-          onClick={handleSignIn}
-          style={{
-            background: "linear-gradient(90deg, #700, #b00)",
-            color: "#fff",
-            padding: "0.75rem 1.5rem",
-            border: "none",
-            borderRadius: "10px",
-            cursor: "pointer",
-            fontSize: "1rem",
-          }}
-        >
+        <button className="btn-primary" onClick={handleSignIn}>
           Sign in with Google
         </button>
       ) : (
         <>
-          <div
-            style={{
-              display: "flex",
-              gap: "1rem",
-              alignItems: "center",
-              marginBottom: "2rem",
-            }}
-          >
+          <div className="top-bar">
             <select
               value={selectedSheet}
               onChange={handleSelectSheet}
-              style={{
-                backgroundColor: "#111",
-                color: "#fff",
-                border: "1px solid #b00",
-                padding: "0.5rem",
-                borderRadius: "6px",
-              }}
+              className="dropdown"
             >
               <option value="">Select Character</option>
               {sheets.map((sheet) => (
@@ -172,93 +119,38 @@ export default function App() {
               ))}
             </select>
 
-            <button
-              onClick={handleCreateSheet}
-              style={{
-                backgroundColor: "#b00",
-                color: "#fff",
-                padding: "0.5rem 1rem",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-              }}
-            >
+            <button className="btn-red" onClick={handleCreateSheet}>
               + New Character
             </button>
 
-            <button
-              onClick={handleSignOut}
-              style={{
-                backgroundColor: "#333",
-                color: "#fff",
-                padding: "0.5rem 1rem",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-              }}
-            >
+            <button className="btn-grey" onClick={handleSignOut}>
               Sign Out
             </button>
           </div>
 
           {loading ? (
-            <p style={{ color: "#888" }}>Loading...</p>
+            <p className="loading">Loading...</p>
           ) : sheetData.length > 0 ? (
-            <div
-              style={{
-                backgroundColor: "#111",
-                border: "1px solid #333",
-                borderRadius: "10px",
-                padding: "1.5rem",
-                width: "90%",
-                maxWidth: "700px",
-                boxShadow: "0 0 15px #a00a",
-              }}
-            >
+            <div className="sheet-container">
               {sheetData.map((row, i) => {
-                const label = row[0]; // col J
-                const editable = row[1] || ""; // col L
-                const formula = row[2] || ""; // col M
+                const label = row[0];
+                const editable = row[1] || "";
+                const formula = row[2] || "";
                 if (!label) return null;
                 return (
-                  <div
-                    key={i}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr 1fr",
-                      gap: "0.5rem",
-                      marginBottom: "0.75rem",
-                      alignItems: "center",
-                    }}
-                  >
+                  <div key={i} className="sheet-row">
                     <label>{label}</label>
                     <input
                       value={editable}
-                      onChange={(e) =>
-                        handleInputChange(i, e.target.value)
-                      }
-                      style={{
-                        backgroundColor: "#1a1a1a",
-                        color: "#fff",
-                        border: "1px solid #b00",
-                        padding: "0.4rem",
-                        borderRadius: "6px",
-                      }}
+                      onChange={(e) => handleInputChange(i, e.target.value)}
                     />
-                    <div
-                      style={{
-                        textAlign: "right",
-                        color: "#aaa",
-                      }}
-                    >
-                      {formula}
-                    </div>
+                    <div className="formula">{formula}</div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p style={{ color: "#666" }}>
+            <p className="no-selection">
               No character selected. Choose one above.
             </p>
           )}
